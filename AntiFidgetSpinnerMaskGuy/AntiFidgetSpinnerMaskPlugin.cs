@@ -7,7 +7,7 @@ using UnityEngine;
 namespace SRH.Mods.LC
 {
     [BepInPlugin(GUID, NAME, VERSION)]
-    public class AntiFidgetSpinnerMaskPlugin
+    public class AntiFidgetSpinnerMaskPlugin : BaseUnityPlugin
     {
         private const string GUID = "SlushyRH.LethalCompany.AntiFidgetSpinnerMask";
         private const string NAME = "AntiFidgetSpinnerMask";

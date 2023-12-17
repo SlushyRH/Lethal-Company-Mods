@@ -1,20 +1,30 @@
 ﻿using BepInEx;
+using BepInEx.Logging;
 using HarmonyLib;
 using UnityEngine;
 
 namespace SRH.Mods.LC
 {
     [BepInPlugin(GUID, NAME, VERSION)]
-    public class FreeMoonsPlugin
+    public class FreeMoonsPlugin : BaseUnityPlugin
     {
         private const string GUID = "SlushyRH.LethalCompany.FreeMoons";
         private const string NAME = "FreeMoons";
         private const string VERSION = "1.0.1";
 
+        public static FreeMoonsPlugin Instance { get; private set; }
+        public ManualLogSource Log { get; private set; }
+
         private readonly Harmony harmony = new Harmony(GUID);
 
         void Awake()
         {
+            // create logging source
+            Log = BepInEx.Logging.Logger.CreateLogSource(GUID);
+
+            if (Instance == null)
+                Instance = this;
+
             harmony.PatchAll(typeof(MoonPricePatch));
         }
     }
@@ -22,24 +32,33 @@ namespace SRH.Mods.LC
     [HarmonyPatch(typeof(Terminal))]
     internal class MoonPricePatch
     {
-        private static Terminal? terminal;
+        private static Terminal terminal = null;
         private static int totalCostOfItems = -5;
 
-        [HarmonyPatch(("Awake"))]
+        [HarmonyPatch("Awake")]
         [HarmonyPostfix]
         static void FindTerminal()
         {
+            FreeMoonsPlugin.Instance.Log.LogInfo("Finding terminal object!");
             terminal = GameObject.FindObjectOfType<Terminal>();
+            
+            if (terminal == null)
+                FreeMoonsPlugin.Instance.Log.LogError("Failed to find terminal object!");
+            else
+                FreeMoonsPlugin.Instance.Log.LogInfo("Found terminal object!");
+
         }
 
         [HarmonyPatch("LoadNewNode")]
         [HarmonyPrefix]
         static void LoadNewNodePatchBefore(ref TerminalNode node)
         {
-            if (terminal == null && node == null && node.buyRerouteToMoon != -2)
+            if (terminal == null && node == null)
                 return;
 
-            // set the visual value of the moon to 0
+            if (node.buyRerouteToMoon != -2)
+                return;
+
             Traverse totalCostOfItemsRef = Traverse.Create(terminal).Field("totalCostOfItems");
             totalCostOfItems = (int)totalCostOfItemsRef.GetValue();
             totalCostOfItemsRef.SetValue(0);
@@ -49,12 +68,14 @@ namespace SRH.Mods.LC
         [HarmonyPostfix]
         static void LoadNewNodePatchAfter(ref TerminalNode node)
         {
-            if (terminal == null && node == null && node.buyRerouteToMoon != -5)
+            if (terminal == null && node == null)
                 return;
 
-            // reset the visual value
+            if (totalCostOfItems == -5)
+                return;
+
             Traverse totalCostOfItemsRef = Traverse.Create(terminal).Field("totalCostOfItems");
-            totalCostOfItemsRef.SetValue(totalCostOfItems);
+            totalCostOfItemsRef.SetValue(0);
 
             totalCostOfItems = -5;
         }
@@ -68,7 +89,9 @@ namespace SRH.Mods.LC
 
             // if node is moon then set cost to 0
             if (node.buyRerouteToMoon != -1)
+            {
                 node.itemCost = 0;
+            }
         }
     }
 }
